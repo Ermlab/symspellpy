@@ -8,10 +8,13 @@ import numpy as np
 
 import symspellpy.helpers as helpers
 
+from pyxdameraulevenshtein import damerau_levenshtein_distance as damerau_levenshtein_distance_pyx
+
 class DistanceAlgorithm(Enum):
     """Supported edit distance algorithms"""
     LEVENSHTEIN = 0  #: Levenshtein algorithm.
     DAMERUAUOSA = 1  #: Damerau optimal string alignment algorithm
+    DAMERAUOSAPYX = 2  #: Damerau-Levenshtein OSA - pyxdameraulevenshtein implementation
 
 class EditDistance(object):
     """Edit distance algorithms.
@@ -41,6 +44,8 @@ class EditDistance(object):
             self._distance_comparer = Levenshtein()
         elif algorithm == DistanceAlgorithm.DAMERUAUOSA:
             self._distance_comparer = DamerauOsa()
+        elif algorithm == DistanceAlgorithm.DAMERAUOSAPYX:
+            self._distance_comparer = DamerauOSAPyx()
         else:
             raise ValueError("Unknown distance algorithm")
 
@@ -384,3 +389,22 @@ class DamerauOsa(AbstractDistanceComparer):
             if char_1_costs[i + len_diff] > max_distance:
                 return -1
         return current_cost if current_cost <= max_distance else -1
+
+class DamerauOSAPyx(AbstractDistanceComparer):
+
+    def distance(self, string_1, string_2, max_distance):
+        if string_1 is None or string_2 is None:
+            return helpers.null_distance_results(string_1, string_2, max_distance)
+
+        if max_distance <= 0:
+            return 0 if string_1 == string_2 else -1
+
+        max_distance = int(min(2 ** 31 - 1, max_distance))
+
+        cost = damerau_levenshtein_distance_pyx(string_1, string_2)
+
+        if cost < max_distance:
+            return cost
+        else:
+            return -1
+
