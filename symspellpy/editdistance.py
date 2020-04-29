@@ -420,16 +420,19 @@ def get_ascii_weights(
     delete_cost=1,
     substitute_cost=1,
     transpose_cost=1,
-    distance_metric="euclidean"
+    distance_metric="euclidean",
+    normalize=True
 ):
-    # Treated equally because no preceding or subsequent characters were considered
+    # Dels and inserts are unweighted as no preceding
+    # or subsequent characters are considered in predictor
     insert_weights = np.ones(128) * insert_cost
     delete_weights = np.ones(128) * delete_cost
 
-    # Weighted with normalised (0:1) distance on the keyboard
+    # Weighted with characters distance on the keyboard
     # TODO: check out other ways to normalize
     distance = KeyboardDistance(metric=distance_metric).ascii_chars_distance
-    distance /= distance.max()
+    if normalize:
+        distance /= distance.max()
 
     substitute_weights = distance * substitute_cost
     transpose_weights = distance * transpose_cost
