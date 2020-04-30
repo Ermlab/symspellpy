@@ -421,20 +421,32 @@ def get_ascii_weights(
     substitute_cost=1,
     transpose_cost=1,
     distance_metric="euclidean",
-    normalize=True
+    normalize=True,
+    non_qwerty_char_constant=None
 ):
     # Dels inserts and subs are unweighted as no preceding
     # or subsequent characters are considered in predictor
     insert_weights = np.ones(128) * insert_cost
     delete_weights = np.ones(128) * delete_cost
-    transpose_weights = np.ones(128) * transpose_cost
+    transpose_weights = np.ones((128, 128)) * transpose_cost
 
     # Weighted with characters distance on the keyboard
+    # excluding ascii characters not used in qwerty keyboard
+    # and setting their distance to constant value or max distance
     # TODO: check out other ways to normalize
-    distance = KeyboardDistance(metric=distance_metric).ascii_chars_distance
+    keyboard_distance = KeyboardDistance(metric=distance_metric)
+    non_qwerty_idxs = np.array([chr(idx) in keyboard_distance._non_qwerty_ascii_chars for idx in range(128)])
+
+    ascii_distance = keyboard_distance.ascii_chars_distance
     if normalize:
-        distance /= distance.max()
-    substitute_weights = distance * substitute_cost
+        ascii_distance /= ascii_distance[~non_qwerty_idxs].max()
+
+    if non_qwerty_char_constant:
+        ascii_distance[non_qwerty_idxs] = non_qwerty_char_constant
+    else:
+        ascii_distance[non_qwerty_idxs] = ascii_distance[~non_qwerty_idxs].max()
+
+    substitute_weights = ascii_distance * substitute_cost
 
     return insert_weights, delete_weights, substitute_weights, transpose_weights
 
@@ -448,6 +460,9 @@ class DamerauOSAWeightened(AbstractDistanceComparer):
         self._weights = weights
 
     def distance(self, string_1, string_2, max_distance):
+        if string_1 == string_2:
+            return 0
+
         if string_1 is None or string_2 is None:
             return helpers.null_distance_results(string_1, string_2, max_distance)
 
@@ -457,7 +472,8 @@ class DamerauOSAWeightened(AbstractDistanceComparer):
         max_distance = int(min(2 ** 31 - 1, max_distance))
 
         # with use of unidecode (really good, but a bit slower)
-        cost = weighted_levenshtein_osa(
+        cost = 0.0  # base cost value
+        cost += weighted_levenshtein_osa(
             unidecode(string_1), unidecode(string_2) , *self._weights
         )
 
