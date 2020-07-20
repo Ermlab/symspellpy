@@ -52,8 +52,6 @@ class EditDistance(object):
             self._distance_comparer = DamerauOSAPyx()
         elif algorithm == DistanceAlgorithm.DAMERAUOSAWEIGHT:
             self._distance_comparer = DamerauOSAWeightened()
-        if isinstance(algorithm, AbstractDistanceComparer):
-            self._distance_comparer = algorithm
         else:
             raise ValueError("Unknown distance algorithm")
 
